@@ -108,3 +108,4 @@ tictoc::toc()
 ```
 Ok, schaut so aus als könnte man den Suchreaum signifikant verkleinern in dem man die Kombinationen mit Distanze 7 ausschließt.
 der Suchraum wäre in diesem Fall **`r sum ( as.numeric(table(perm_rest_dist)[which ( names(table(perm_rest_dist)) != 7)]))`**
+

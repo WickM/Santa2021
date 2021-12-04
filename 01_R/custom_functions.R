@@ -6,10 +6,20 @@
 #################################################x
 options(stringsAsFactors = FALSE)
 
-library()
 
 #####
 
+
+#' Funktion for calculation permutation distance
+#' @param var1 Fist character string
+#' 
+#' @param var2 Second character string
+#' 
+#' @return character Distance as list  
+#' distance_1_2 = Distance form String1 to String2
+#' distance_2_1 = Distance form String2 to String1
+
+#'
 combin_distance <- function(var1, var2) {
   ind <- nchar(var1)
   repeat {
