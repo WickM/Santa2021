@@ -89,3 +89,5 @@ santa_matrix <- list("santa_small" = dat_santa_rest_small,
 
 write_rds(permutationen, here::here("02_Data/permutationen.rds"))
 write_rds(santa_matrix, here::here("02_Data/santa_matrix.rds"))
+
+zip(zipfile = here::here("02_Data/santa_matrix.zip"), files = here::here("02_Data/santa_matrix.rds"))
