@@ -1,0 +1,110 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(combinat)
+library(tictoc)
+library(furrr)
+```
+
+# Santa 2021 - The Merry Movie Montag
+
+## Description
+
+Your objective is to find a set of three strings containing every permutation of the seven symbols 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, and 🎀 as substrings, subject to the following conditions:
+
+-   Every permutation must be in at least one string.
+-   Each permutation beginning with 🎅🤶 must be in all three strings.
+-   Each string may have up to two wildcards 🌟, which will match any symbol in a permutation. No string of length seven containing more than one wildcard will count as a permutation.
+
+Your score is the length of the longest of the three strings. This is a minimization problem, so lower scores are better.
+
+1.  Jede Permutation muss in zumindest in einer der drei Versionen vorkommen
+2.  in jeder Version müssen alle Permutationen welche mit starten 🎅🤶 vorkommen (120)
+3.  In jeder Version/String können bis zu 2 Wildcards vorkommen welche jedes Symbol ersetzen können. Pro Permutation darf nur eine Wildcard verwendet werden
+
+## Exploration
+
+### How many Permutations are there
+
+```{r}
+perm <- combinat::permn(x = c("1","2","3","4","5","6","7"))
+perm_str <- map(perm, ~ stringr::str_c(.x, collapse = ""))
+
+perm_1_2 <- keep(perm_str, ~str_starts(string = .x, pattern = "12"))
+perm_rest <- keep(perm_str, ~str_starts(string = .x, pattern = "12", negate = TRUE))
+
+length(perm_1_2)
+length(perm_rest)
+```
+
+The Vector starting with 🎅🤶 has **120** permutations. The Vector not starting with 🎅🤶 **4920**
+
+### How many combinations are there
+
+```{r}
+perm_1_2 <- unlist(perm_1_2)
+perm_rest <- unlist(perm_rest)
+
+perm_1_2_combinat <- combinat::combn(x = perm_1_2, m = 2, simplify = FALSE)
+perm_rest_combinat <- combinat::combn(x = perm_rest, m = 2, simplify = FALSE)
+
+length(perm_1_2_combinat)
+length(perm_rest_combinat)
+```
+
+There are **7140** possibly combinations for vector starting with 🎅🤶 and **12 100 740** combinations in the Vector not starting with 🎅🤶.
+
+## Wie weit liegen die combinationen auseinander? wie groß ist der Suchraum der jeweiligen Varianten
+
+```{r}
+#Function zur berechnung der entfernung der verschiedenen Kombinationen
+
+combin_distance <- function(var1, var2) {
+  ind <- nchar(var1)
+  repeat {
+    ind <- ind -1
+    match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
+    if (match == TRUE | ind == 0) {break}
+  }
+  comb_dist <- 7- ind
+  
+  return(comb_dist)
+}
+
+var1 <- "1234567" 
+var2 <- "1234576"
+combin_distance(var1, var2)
+
+var1 <- "1234567" 
+var2 <- "2345671"
+combin_distance(var1, var2)
+
+```
+
+
+```{r}
+#Variante 🎅🤶
+combin_distance(var1 = perm_1_2_combinat[[1]][1], var2 = perm_1_2_combinat[[1]][2])
+
+perm_1_2_dist <- map_dbl(perm_1_2_combinat, ~ combin_distance(.x[1], .x[2]))
+table(perm_1_2_dist)
+```
+Das hätte ich mir denken können.
+
+```{r}
+#Variante REST
+plan(multisession, workers = future::availableCores())
+
+tictoc::tic()
+perm_rest_dist <- furrr::future_map_dbl(perm_rest_combinat, ~ combin_distance(.x[1], .x[2]))
+table(perm_rest_dist)
+tictoc::toc()
+```
+Ok, schaut so aus als könnte man den Suchreaum signifikant verkleinern in dem man die Kombinationen mit Distanze 7 ausschließt.
+der Suchraum wäre in diesem Fall **`r sum ( as.numeric(table(perm_rest_dist)[which ( names(table(perm_rest_dist)) != 7)]))`**
