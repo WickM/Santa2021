@@ -39,13 +39,14 @@ atsp <- ATSP(santa_tsp_data)
 n_of_cities(atsp)
 labels(atsp)
 
-data <- matrix(runif(10^2), ncol = 10, dimnames = list(1:10, 1:10))
+concorde_path(here::here("tsp_solver/"))
 
-atsp <- ATSP(data)
-
-concorde_path(here::here("tsp_solver/linkern.exe/"))
+linkern_help()
 
 tour <- solve_TSP(atsp, method = "linkern", as_TSP = TRUE)
 
 tour
+names(tour)
+
+write_rds(tour, here::here("02_Data/tsp_tour_0612.rds"))
 
