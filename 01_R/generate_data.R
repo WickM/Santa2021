@@ -12,21 +12,6 @@ library(furrr)
 
 source(here::here("01_R/custom_functions.R"))
 
-generate_tibble <- function(combin_list) {
-  dat <- tibble("permutation" = map_chr(combin_list, ~ pluck(.x, 1)), 
-         "combination" = map_chr(combin_list, ~ pluck(.x, 2)) )
-  
-  return(dat)
-}
-
-generate_dist_matrix <- function(dat) {
-  dat <- tidyr::pivot_wider(dat, 
-                            id_cols = c("dataset", "permutation"), 
-                            names_from = combination, 
-                            values_from = distance)
-  return(dat)
-}
-
 ###generate Data----
 
 perm <- combinat::permn(x = c("1","2","3","4","5","6","7"))
@@ -59,7 +44,6 @@ dat_santa_rest$distance_perm_combin <- furrr::future_map_dbl(
 dat_santa_rest$distance_combin_perm <- furrr::future_map_dbl(
   perm_rest_combinat, ~ combin_distance(.x[2], .x[1])
 )
-
 
 dat_santa_rest_1 <- dat_santa_rest %>% 
   select(dataset, permutation, combination, distance_perm_combin)
