@@ -84,3 +84,75 @@ generate_dist_matrix_teil2 <- function(permutation_vector) {
   return(dat)
 }
 
+cut_permutation <- function(solution) {
+  
+ string <- map_chr(seq(1, length(solution) -1), ~ {
+    
+    var1 <- solution[.x]
+    var2 <- solution[.x + 1]
+    
+    ind <- nchar(var1)
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+      
+      cut_string <- stringr::str_sub(var1,1, 7-ind)
+      return(cut_string)
+    }
+  )
+ 
+ string <- paste(string, collapse = "")
+ return(string)
+}
+
+santa_submission <- function(solution, permutationen) {
+  
+  
+  # Step 1 Check alle Permutationen enthalten alle santa permutationen enthalten
+  solution_names <- c(names(solution[[1]]), names(solution[[2]]), names(solution[[3]]))
+  
+  if(
+    all(c(permutationen$santa_1_2_perm, permutationen$santa_rest_perm) %in% solution_names) &
+    all(solution_names %in% c(permutationen$santa_1_2_perm, permutationen$santa_rest_perm)) &
+    any(duplicated(solution_names [which(! solution_names %in% permutationen$santa_1_2_perm)])) == FALSE) {
+    
+    #Step2 Strings zusammenlegen
+    dat <- list ("solution1" = names(solution[[1]]),
+                 "solution2" = names(solution[[2]]),
+                 "solution3" = names(solution[[3]]))
+    
+    solution <- map(dat, ~ cut_permutation(.x))
+    
+    #Step3 umbenennen
+    # 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, 🎀
+    
+    solution <- map(solution, ~ {
+      temp <- str_replace_all(.x,   "1", "🎅")
+      temp <- str_replace_all(temp, "2", "🤶")
+      temp <- str_replace_all(temp, "3", "🦌")
+      temp <- str_replace_all(temp, "4", "🧝")
+      temp <- str_replace_all(temp, "5", "🎄")
+      temp <- str_replace_all(temp, "6", "🎁")
+      temp <- str_replace_all(temp, "7", "🎀")
+      
+      return(temp)
+    })
+    
+    return(solution)
+    
+  } else {cat("Submission File has an Error")}
+  
+}
+
+santa_submission_submission_file <- function(solution, file) {
+  #schedule 
+  submission <- read_csv("02_Data/sample_submission.csv")
+  submission$schedule[1] <- paste(utf8::utf8_print(solution$solution1,quote = FALSE),collapse= "")
+  submission$schedule[2] <- paste(utf8::utf8_print(solution$solution2,quote = FALSE),collapse= "")
+  submission$schedule[3] <- paste(utf8::utf8_print(solution$solution3,quote = FALSE),collapse= "")
+  
+  write_csv(submission,file = file)
+  
+}
