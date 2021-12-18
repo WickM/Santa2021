@@ -34,6 +34,8 @@ generate_santa_tour <- function(dat) {
     select(-permutation) %>% 
     as.matrix()
   
+  santa_tsp_data <- santa_tsp_data[order(row.names(santa_tsp_data)), ][, sort(row.names(santa_tsp_data))]
+  
   atsp <- ATSP(santa_tsp_data)
   
   tour <- solve_TSP(atsp, method = "linkern", as_TSP = TRUE)
@@ -47,5 +49,5 @@ santa_tour <- map(santa_matrix, ~ generate_santa_tour(dat = .x))
 test <- santa_tour[[1]]
 test
 
-write_rds(santa_tour, here::here("02_Data/tsp_tour_teil2_0712.rds"))
+write_rds(santa_tour, here::here("02_Data/tsp_tour_teil2_1712.rds"))
 
