@@ -159,7 +159,7 @@ santa_submission_submission_file <- function(solution, file) {
 
 #' Funktion mit welcher der Datensatz umgewandelt un dem solver übergeben wird
 #' 
-generate_santa_tour <- function(dat, method = "linkern", control = NULL) {
+generate_santa_tour <- function(dat, method = "linkern", control = NULL, verbose =TRUE) {
   
   santa_tsp_data <- dat %>% 
     select(-dataset) %>% 
@@ -173,9 +173,10 @@ generate_santa_tour <- function(dat, method = "linkern", control = NULL) {
     select(-permutation) %>% 
     as.matrix()
   
+  santa_tsp_data <- santa_tsp_data[order(row.names(santa_tsp_data)), ][, sort(row.names(santa_tsp_data))]
   atsp <- ATSP(santa_tsp_data)
   
-  tour <- solve_TSP(atsp, method = method, as_TSP = TRUE, control =control)
+  tour <- solve_TSP(atsp, method = method, as_TSP = TRUE, control =control, verbose	 =  verbose)
   
   return(tour)
 }

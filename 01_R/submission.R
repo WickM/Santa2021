@@ -15,7 +15,7 @@ library(rlist)
 source("01_R/custom_functions.R")
 #####Daten----
 
-santa_solution <- readRDS("02_Data/tsp_tour_teil2_0712.rds")
+santa_solution <- readRDS("02_Data/tsp_tour_teile_1912.rds")
 permutationen <- readRDS("02_Data/permutationen.rds")
 
 #solution <- santa_submission(santa_solution, permutationen)
@@ -32,14 +32,15 @@ solution <- list ("solution1" = names(solution[[1]]),
   all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
   all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
   
-  solution <- map(dat, ~ cut_permutation(.x))
+  solution <- map(solution, ~ cut_permutation(.x))
   
   string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
   all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
   all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
   
+nchar(solution$solution3)
   
-  #Step3 umbenennen
+#Step3 umbenennen
   # 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, 🎀
   
   solution <- map(solution, ~ {
@@ -86,8 +87,8 @@ solution <- list ("solution1" = names(solution[[1]]),
   missing <- map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x))
   which(missing == FALSE)
   
-  permutationen$santa_rest_perm_rep[484]
-  permutationen$santa_rest_perm[484]
+  permutationen$santa_rest_perm_rep[which(missing == FALSE)]
+  permutationen$santa_rest_perm[which(missing == FALSE)]
   
   solution$solution1 <- paste (solution$solution1, permutationen$santa_rest_perm_rep[484], collapse = "") 
   
