@@ -156,3 +156,64 @@ santa_submission_submission_file <- function(solution, file) {
   write_csv(submission,file = file)
   
 }
+
+#' Funktion mit welcher der Datensatz umgewandelt un dem solver übergeben wird
+#' 
+generate_santa_tour <- function(dat, method = "linkern", control = NULL) {
+  
+  santa_tsp_data <- dat %>% 
+    select(-dataset) %>% 
+    mutate(across(.cols = everything(), ~replace_na(.x, Inf))) %>% 
+    mutate(across(.cols = everything(), ~ifelse(.x == 7, Inf, .x))) %>% 
+    as.data.frame()
+  
+  row.names(santa_tsp_data) <- santa_tsp_data$permutation
+  
+  santa_tsp_data <-santa_tsp_data %>% 
+    select(-permutation) %>% 
+    as.matrix()
+  
+  atsp <- ATSP(santa_tsp_data)
+  
+  tour <- solve_TSP(atsp, method = method, as_TSP = TRUE, control =control)
+  
+  return(tour)
+}
+###
+
+#' Funktion mu einen solutui sting in seine permutationen aufzubrechen
+break_solution <- function(solution, anz_perm) {
+  
+  search_position <- 1
+  vec <- c()
+  for (perm in seq(1, anz_perm)) {
+    
+    repeat {
+      match <- ifelse ( all(
+        c("1", "2", "3","4","5","6","7") %in% str_split( str_sub(solution, search_position, search_position+6), pattern = "", simplify = TRUE) 
+      ) ,str_sub(solution, search_position, search_position+6) , FALSE)
+      if (match == FALSE) {search_position <- search_position +1} else {break}
+    }
+    search_position <- search_position +1
+    vec <- append(vec, match)
+  }
+  
+    
+  
+  return(vec)
+}
+
+#eine Liste mit x permutationen in x teile teilen wobei sämtliche fehlenden 1_2 permutationen in jedem Teil vorkommen müssen
+teilen <- function(anz_teile, permutationen_1_2, solution) {
+  begin <- seq(1, length(solution), by=  length(solution) / anz_teile)
+  end <- begin + (length(solution) / anz_teile -1 )
+  
+  teile <- map2(begin, end, ~{
+    teil <- map_chr(seq(.x, .y), ~ pluck(solution, .x))
+    
+    ind <- which(! permutationen_1_2 %in% teil)
+    teil <- c(teil , permutationen_1_2[ind])
+    
+  })
+}
+

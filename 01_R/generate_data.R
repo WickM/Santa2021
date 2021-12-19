@@ -1,77 +1,37 @@
 #################################################x
-#' Project: Santa 2021
-#' Script purpose: Skript mit welchem die Daten für die spätere optimierung generiert werden
-#' Sat Dec 04 08:18:51 2021
+#' Project: Santa Data generation
+#' Script purpose: mit dem Skript wird die beste verfügbare sollution in 3 Teile aufgebrochen und die jeweils fehlenden Permutationen werden angehängt
+#' Sat Dec 18 22:55:49 2021
 #' Author: Manuel Wick-Eckl 
 #################################################x
 options(stringsAsFactors = FALSE)
 
 library(tidyverse)
-library(combinat)
-library(furrr)
+library(rlist)
 
-source(here::here("01_R/custom_functions.R"))
+source("01_R/custom_functions.R")
 
-###generate Data----
 
-perm <- combinat::permn(x = c("1","2","3","4","5","6","7"))
-perm_str <- map(perm, ~ stringr::str_c(.x, collapse = ""))
+#####Daten einlesen
+best_avaiable_solution <- readLines("02_Data/best_avaiable_solution.txt")
+permutation <- readRDS("02_Data/permutationen.rds")
 
-#### 🎅🤶 Dataset  ----
+#best verfügbare solution in permutationen aufbrechen
+anz_perm <- length(permutation$santa_1_2_perm) + length(permutation$santa_rest_perm)
 
-perm_1_2 <- keep(perm_str, ~str_starts(string = .x, pattern = "12"))
-perm_1_2 <- unlist(perm_1_2)
-perm_1_2_combinat <- combinat::combn(x = perm_1_2, m = 2, simplify = FALSE)
+solution <- break_solution(solution = best_avaiable_solution, anz_perm = anz_perm)
 
-dat_santa_1_2 <- generate_tibble(perm_1_2_combinat)
-dat_santa_1_2$dataset <- "Santa_1_2"
+any(duplicated(solution))
+all( c(permutation$santa_1_2_perm, permutation$santa_rest_perm) %in% solution)
 
-#### ! 🎅🤶 Dataset  ----
+santa_teile <- teilen(anz_teile = 3, permutationen_1_2 = permutation$santa_1_2_perm, solution = solution)
 
-perm_rest <- keep(perm_str, ~str_starts(string = .x, pattern = "12", negate = TRUE))
-perm_rest <- unlist(perm_rest)
-perm_rest_combinat <- combinat::combn(x = perm_rest, m = 2, simplify = FALSE)
+all(permutation$santa_1_2_perm %in% santa_teile[[1]])
+all(permutation$santa_1_2_perm %in% santa_teile[[2]])
+all(permutation$santa_1_2_perm %in% santa_teile[[3]])
 
-dat_santa_rest <- generate_tibble(perm_rest_combinat)
-dat_santa_rest$dataset <- "Santa_rest"
+all(permutation$santa_rest_perm %in% c(santa_teile[[1]], santa_teile[[2]], santa_teile[[3]] ))
 
-plan(multisession, workers = future::availableCores())
+santa_teile_matrix <- map(santa_teile, ~ generate_dist_matrix_teil2(permutation_vector = .x) )
 
-dat_santa_rest$distance_perm_combin <- furrr::future_map_dbl(
-  perm_rest_combinat, ~ combin_distance(.x[1], .x[2])
-  )
-
-dat_santa_rest$distance_combin_perm <- furrr::future_map_dbl(
-  perm_rest_combinat, ~ combin_distance(.x[2], .x[1])
-)
-
-dat_santa_rest_1 <- dat_santa_rest %>% 
-  select(dataset, permutation, combination, distance_perm_combin)
-
-dat_santa_rest_2 <- dat_santa_rest %>% 
-  select(dataset)
-
-dat_santa_rest_2$permutation <- dat_santa_rest$combination
-dat_santa_rest_2$combination <- dat_santa_rest$permutation
-dat_santa_rest_2$distance_perm_combin <- dat_santa_rest$distance_combin_perm
-
-dat_santa_rest <- rbind(dat_santa_rest_1, dat_santa_rest_2)
-dat_santa_rest <- distinct(dat_santa_rest, permutation, combination, .keep_all = TRUE) %>% 
-  rename(., distance = "distance_perm_combin",
-         permuatation = "")
-
-dat_santa_rest_small <- generate_dist_matrix(dat_santa_rest[which(dat_santa_rest$distance != 7), ])
-dat_santa_rest_large <- generate_dist_matrix(dat_santa_rest)
-
-### Daten abspeichern ----
-
-permutationen <- list("santa_1_2_perm" = perm_1_2, 
-                       "santa_rest_perm" = perm_rest)
-
-santa_matrix <- list("santa_small" = dat_santa_rest_small, 
-                     "santa_large" = dat_santa_rest_large)
-
-write_rds(permutationen, here::here("02_Data/permutationen.rds"))
-write_rds(santa_matrix, here::here("02_Data/santa_matrix.rds"))
-
-zip(zipfile = here::here("02_Data/santa_matrix.zip"), files = here::here("02_Data/santa_matrix.rds"))
+write_rds(x = santa_teile_matrix, "02_Data/santa_teile_matix.rds")
