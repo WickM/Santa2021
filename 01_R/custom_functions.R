@@ -19,15 +19,18 @@ options(stringsAsFactors = FALSE)
 #' distance_1_2 = Distance form String1 to String2
 #' distance_2_1 = Distance form String2 to String1
 combin_distance <- function(var1, var2) {
-  ind <- nchar(var1)
-  repeat {
-    ind <- ind -1
-    match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
-    if (match == TRUE | ind == 0) {break}
-  }
-  comb_dist <- 7- ind
   
-  return(comb_dist)
+  if (is.na(var2) != TRUE) {
+    ind <- nchar(var1)
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+    comb_dist <- 7- ind
+    
+    return(comb_dist)
+  } else {return(0)}
 }
 
 generate_tibble <- function(combin_list) {
@@ -91,19 +94,13 @@ cut_permutation <- function(solution) {
     var1 <- solution[.x]
     var2 <- solution[.x + 1]
     
-    ind <- nchar(var1)
-    repeat {
-      ind <- ind -1
-      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
-      if (match == TRUE | ind == 0) {break}
-    }
-      
-      cut_string <- stringr::str_sub(var1,1, 7-ind)
-      return(cut_string)
-    }
-  )
+    dist <- combin_distance(var1 = var1, var2 = var2)
+    
+    cut_string <- stringr::str_sub(var1, 1 ,dist)
+    return(cut_string)
+    })
  
- string <- paste(string, collapse = "")
+ string <-paste0(paste0(string, collapse = ""), solution[length(solution)], collapse = "")
  return(string)
 }
 
