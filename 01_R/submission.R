@@ -28,18 +28,34 @@ solution <- list ("solution1" = names(solution[[1]]),
                "solution2" = names(solution[[2]]),
                "solution3" = names(solution[[3]]))
 
-  string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
+  all(permutationen$santa_1_2_perm %in% solution$solution1)
+  all(permutationen$santa_1_2_perm %in% solution$solution2)
+  all(permutationen$santa_1_2_perm %in% solution$solution3)
+  
+  all(permutationen$santa_rest_perm %in% c(solution$solution3, solution$solution2, solution$solution1))
+
+    
   
   solution <- map(solution, ~ cut_permutation(.x))
   
   string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
+  all(map_lgl(permutationen$santa_1_2_perm, ~ str_detect(string = solution$solution1, pattern = .x)))
+  all(map_lgl(permutationen$santa_1_2_perm, ~ str_detect(string = solution$solution2, pattern = .x)))
+  all(map_lgl(permutationen$santa_1_2_perm, ~ str_detect(string = solution$solution3, pattern = .x)))
   
-nchar(solution$solution3)
+  all(map_lgl(permutationen$santa_rest_perm, ~ str_detect(string = string, pattern = .x)))
   
+# ok function cut verursacht den fehler
+  
+  
+  nchar(solution$solution1)
+  
+all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution1, pattern = .x)))
+all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution2, pattern = .x)))
+all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution3, pattern = .x)))
+
+
+
 #Step3 umbenennen
   # 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, 🎀
   
@@ -80,20 +96,34 @@ nchar(solution$solution3)
                                       })
                                       )
   
+  
+  
+  # Warum 
   string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
   all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
   all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
+  
+  
   
   missing <- map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x))
   which(missing == FALSE)
   
   permutationen$santa_rest_perm_rep[which(missing == FALSE)]
   permutationen$santa_rest_perm[which(missing == FALSE)]
+
+  string_missing <- paste0(permutationen$santa_rest_perm_rep[which(missing == FALSE)], collapse = "")
+  nchar(string_missing)
   
-  solution$solution1 <- paste (solution$solution1, permutationen$santa_rest_perm_rep[484], collapse = "") 
+  solution$solution1 <- paste (solution$solution1, string_missing, collapse = "") 
+  nchar(solution$solution1)
   
   string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
+  
+  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution1, pattern = .x)))
+  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution2, pattern = .x)))
+  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = solution$solution3, pattern = .x)))
+  
+  
   all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
   
   submission <- read_csv("02_Data/sample_submission.csv")
