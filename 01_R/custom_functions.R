@@ -215,3 +215,52 @@ teilen <- function(anz_teile, permutationen_1_2, solution) {
   })
 }
 
+#' check Function
+#' Function welche schaut ob die submission Kriterien erfüllt sind 
+#' Alle 12 permutationen in allen strings und in summe alle permutatinen vorhanden
+check <- function(solution_list, permutation_list) {
+  require(cli)
+  
+  submission_error <- FALSE
+  
+  what_is_missing <- function(solution_temp, check_perm){
+    ind <- which( map_lgl(check_perm, ~ str_detect(string = paste(solution_temp, collapse = ""), pattern = .x)))
+    anz <- length(ind)
+    missing <- check_perm[ind]
+    
+    cli_alert_danger("Es fehlen {anz} Permutationen im submission String. {missing}")
+    
+  }
+  string <- paste(map_chr(solution_list, ~ paste(.x, collapse = "")), collapse = "")
+  ii <- 1
+  
+    #Check alle 1-2 Permutationen in jedem String enthalten----
+  for (sub1_2 in solution_list) {
+    
+    if(  all (map_lgl(.x = permutation_list$santa_1_2_perm, 
+                       ~ str_detect(string = paste(sub1_2, collapse = ""), pattern = .x)))  == TRUE) {
+      cli::cli_alert_success("Keine fehlenden 1-2 Permutationen im Submission String {ii}")
+    } else {
+      submission_error <- TRUE
+      cli_h1("Sting nr {ii}")
+      walk(solution_list, ~ what_is_missing(solution_temp = .x, check_perm = permutation_list$santa_1_2_perm))
+    }
+    
+    ii <- ii + 1
+  }
+    
+    
+    #Check alle ! 1-2 Permutationen in den Strings in enthalten----
+    
+    if (all(map_lgl(permutation_list$santa_rest_perm, ~ str_detect(string = string, pattern = .x))) == TRUE) {
+      cli::cli_alert_success("Alle Permutationen in der Submission enthalten")
+      
+    } else {
+      submission_error <- TRUE
+      walk(solution_list, ~ what_is_missing(solution_temp = .x, check_perm = permutation_list$santa_rest_perm))
+    }
+
+  cli::cli_alert_success("Länge der Submission {nchar(solution_list)}")
+  
+  return(submission_error)
+}
