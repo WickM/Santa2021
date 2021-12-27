@@ -19,15 +19,18 @@ options(stringsAsFactors = FALSE)
 #' distance_1_2 = Distance form String1 to String2
 #' distance_2_1 = Distance form String2 to String1
 combin_distance <- function(var1, var2) {
-  ind <- nchar(var1)
-  repeat {
-    ind <- ind -1
-    match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
-    if (match == TRUE | ind == 0) {break}
-  }
-  comb_dist <- 7- ind
   
-  return(comb_dist)
+  if (is.na(var2) != TRUE) {
+    ind <- nchar(var1)
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+    comb_dist <- 7- ind
+    
+    return(comb_dist)
+  } else {return(0)}
 }
 
 generate_tibble <- function(combin_list) {
@@ -91,19 +94,13 @@ cut_permutation <- function(solution) {
     var1 <- solution[.x]
     var2 <- solution[.x + 1]
     
-    ind <- nchar(var1)
-    repeat {
-      ind <- ind -1
-      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
-      if (match == TRUE | ind == 0) {break}
-    }
-      
-      cut_string <- stringr::str_sub(var1,1, 7-ind)
-      return(cut_string)
-    }
-  )
+    dist <- combin_distance(var1 = var1, var2 = var2)
+    
+    cut_string <- stringr::str_sub(var1, 1 ,dist)
+    return(cut_string)
+    })
  
- string <- paste(string, collapse = "")
+ string <-paste0(paste0(string, collapse = ""), solution[length(solution)], collapse = "")
  return(string)
 }
 
@@ -155,4 +152,115 @@ santa_submission_submission_file <- function(solution, file) {
   
   write_csv(submission,file = file)
   
+}
+
+#' Funktion mit welcher der Datensatz umgewandelt un dem solver übergeben wird
+#' 
+generate_santa_tour <- function(dat, method = "linkern", control = NULL, verbose =TRUE) {
+  
+  santa_tsp_data <- dat %>% 
+    select(-dataset) %>% 
+    mutate(across(.cols = everything(), ~replace_na(.x, Inf))) %>% 
+    mutate(across(.cols = everything(), ~ifelse(.x == 7, Inf, .x))) %>% 
+    as.data.frame()
+  
+  row.names(santa_tsp_data) <- santa_tsp_data$permutation
+  
+  santa_tsp_data <-santa_tsp_data %>% 
+    select(-permutation) %>% 
+    as.matrix()
+  
+  santa_tsp_data <- santa_tsp_data[order(row.names(santa_tsp_data)), ][, sort(row.names(santa_tsp_data))]
+  atsp <- ATSP(santa_tsp_data)
+  
+  tour <- solve_TSP(atsp, method = method, as_TSP = TRUE, control =control, verbose	 =  verbose)
+  
+  return(tour)
+}
+###
+
+#' Funktion mu einen solutui sting in seine permutationen aufzubrechen
+break_solution <- function(solution, anz_perm) {
+  
+  search_position <- 1
+  vec <- c()
+  for (perm in seq(1, anz_perm)) {
+    
+    repeat {
+      match <- ifelse ( all(
+        c("1", "2", "3","4","5","6","7") %in% str_split( str_sub(solution, search_position, search_position+6), pattern = "", simplify = TRUE) 
+      ) ,str_sub(solution, search_position, search_position+6) , FALSE)
+      if (match == FALSE) {search_position <- search_position +1} else {break}
+    }
+    search_position <- search_position +1
+    vec <- append(vec, match)
+  }
+  
+    
+  
+  return(vec)
+}
+
+#eine Liste mit x permutationen in x teile teilen wobei sämtliche fehlenden 1_2 permutationen in jedem Teil vorkommen müssen
+teilen <- function(anz_teile, permutationen_1_2, solution) {
+  begin <- seq(1, length(solution), by=  length(solution) / anz_teile)
+  end <- begin + (length(solution) / anz_teile -1 )
+  
+  teile <- map2(begin, end, ~{
+    teil <- map_chr(seq(.x, .y), ~ pluck(solution, .x))
+    
+    ind <- which(! permutationen_1_2 %in% teil)
+    teil <- c(teil , permutationen_1_2[ind])
+    
+  })
+}
+
+#' check Function
+#' Function welche schaut ob die submission Kriterien erfüllt sind 
+#' Alle 12 permutationen in allen strings und in summe alle permutatinen vorhanden
+check <- function(solution_list, permutation_list) {
+  require(cli)
+  
+  submission_error <- FALSE
+  
+  what_is_missing <- function(solution_temp, check_perm){
+    ind <- which( map_lgl(check_perm, ~ str_detect(string = paste(solution_temp, collapse = ""), pattern = .x)))
+    anz <- length(ind)
+    missing <- check_perm[ind]
+    
+    cli_alert_danger("Es fehlen {anz} Permutationen im submission String. {missing}")
+    
+  }
+  string <- paste(map_chr(solution_list, ~ paste(.x, collapse = "")), collapse = "")
+  ii <- 1
+  
+    #Check alle 1-2 Permutationen in jedem String enthalten----
+  for (sub1_2 in solution_list) {
+    
+    if(  all (map_lgl(.x = permutation_list$santa_1_2_perm, 
+                       ~ str_detect(string = paste(sub1_2, collapse = ""), pattern = .x)))  == TRUE) {
+      cli::cli_alert_success("Keine fehlenden 1-2 Permutationen im Submission String {ii}")
+    } else {
+      submission_error <- TRUE
+      cli_h1("Sting nr {ii}")
+      walk(solution_list, ~ what_is_missing(solution_temp = .x, check_perm = permutation_list$santa_1_2_perm))
+    }
+    
+    ii <- ii + 1
+  }
+    
+    
+    #Check alle ! 1-2 Permutationen in den Strings in enthalten----
+    
+    if (all(map_lgl(permutation_list$santa_rest_perm, ~ str_detect(string = string, pattern = .x))) == TRUE) {
+      cli::cli_alert_success("Alle Permutationen in der Submission enthalten")
+      
+    } else {
+      submission_error <- TRUE
+      walk(solution_list, ~ what_is_missing(solution_temp = .x, check_perm = permutation_list$santa_rest_perm))
+    }
+
+  cli::cli_alert_success("Länge der Submission {nchar(solution_list)}")
+  
+  return(submission_error)
 }

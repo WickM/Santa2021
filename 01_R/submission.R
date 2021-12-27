@@ -13,36 +13,73 @@ library(readr)
 library(rlist)
 
 source("01_R/custom_functions.R")
-#####Daten----
+#####Prep solution----
 
-santa_solution <- readRDS("02_Data/tsp_tour_teil2_0712.rds")
+santa_solution <- readRDS("02_Data/tsp_tour_teile_1912.rds")
 permutationen <- readRDS("02_Data/permutationen.rds")
+
+# permutationen <- list(
+#   "permutationen" = list (
+#     "santa_1_2_perm" = permutationen$santa_1_2_perm, 
+#     "santa_rest_perm" = permutationen$santa_rest_perm
+#     )
+# )
+# 
+# permutationen <- rlist::list.append(permutationen, 
+#                                     "permutation_renamed" = map(permutationen$permutationen, ~ {
+#                                       temp <- str_replace_all(.x,   "1", "🎅")
+#                                       temp <- str_replace_all(temp, "2", "🤶")
+#                                       temp <- str_replace_all(temp, "3", "🦌")
+#                                       temp <- str_replace_all(temp, "4", "🧝")
+#                                       temp <- str_replace_all(temp, "5", "🎄")
+#                                       temp <- str_replace_all(temp, "6", "🎁")
+#                                       temp <- str_replace_all(temp, "7", "🎀")
+#                                       
+#                                       return(temp)
+#                                     })
+#                                     )
+# 
+# write_rds(permutationen, file = "02_Data/permutationen.rds")
+
+
 
 #solution <- santa_submission(santa_solution, permutationen)
 solution <- santa_solution
 # Step 1 Check alle Permutationen enthalten alle santa permutationen enthalten
 solution_names <- c(names(solution[[1]]), names(solution[[2]]), names(solution[[3]]))
 
-#Step2 Strings zusammenlegen
-solution <- list ("solution1" = names(solution[[1]]),
-               "solution2" = names(solution[[2]]),
-               "solution3" = names(solution[[3]]))
 
-  string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  
-  solution <- map(dat, ~ cut_permutation(.x))
-  
-  string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  
-  
-  #Step3 umbenennen
-  # 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, 🎀
-  
-  solution <- map(solution, ~ {
+solution <- list("solution_permutationen" = list(
+  "solution1" = names(solution[[1]]),
+  "solution2" = names(solution[[2]]),
+  "solution3" = names(solution[[3]])))
+
+check(solution_list = solution$solution_permutationen, permutation_list = permutationen$permutationen)
+
+#Step2 Strings zusammenlegen
+solution <- rlist::list.append(
+  solution, "solution_cut" = map(solution$solution_permutationen, ~ {cut_permutation(.x)
+  })
+)
+
+check(solution_list = solution$solution_cut, permutation_list = permutationen$permutationen)
+
+#String distance 
+solution <- rlist::list.append(
+  solution, "solution_distance" = map(solution$solution_permutationen, ~ {
+   temp <- .x
+   imap_dbl(temp,  ~ combin_distance(.x, temp[.y+1]))
+  })
+)
+
+####Post_Processing----
+
+####Submission ----
+#Step umbenennen
+# 🎅, 🤶, 🦌, 🧝, 🎄, 🎁, 🎀
+
+solution <- rlist::list.append(
+  solution, "solution_renamed" = map(solution$solution_cut, ~ {
     temp <- str_replace_all(.x,   "1", "🎅")
     temp <- str_replace_all(temp, "2", "🤶")
     temp <- str_replace_all(temp, "3", "🦌")
@@ -53,52 +90,18 @@ solution <- list ("solution1" = names(solution[[1]]),
     
     return(temp)
   })
+)
+check(solution_list = solution$solution_renamed, permutation_list = permutationen$permutation_renamed)
 
-  permutationen <- rlist::list.append(permutationen, 
-                                      "santa_1_2_perm_rep" = map(permutationen$santa_1_2_perm, ~ {
-                                        temp <- str_replace_all(.x,   "1", "🎅")
-                                        temp <- str_replace_all(temp, "2", "🤶")
-                                        temp <- str_replace_all(temp, "3", "🦌")
-                                        temp <- str_replace_all(temp, "4", "🧝")
-                                        temp <- str_replace_all(temp, "5", "🎄")
-                                        temp <- str_replace_all(temp, "6", "🎁")
-                                        temp <- str_replace_all(temp, "7", "🎀")
-                                        
-                                        return(temp)
-                                      }),
-                                      "santa_rest_perm_rep" = map(permutationen$santa_rest_perm, ~ {
-                                        temp <- str_replace_all(.x,   "1", "🎅")
-                                        temp <- str_replace_all(temp, "2", "🤶")
-                                        temp <- str_replace_all(temp, "3", "🦌")
-                                        temp <- str_replace_all(temp, "4", "🧝")
-                                        temp <- str_replace_all(temp, "5", "🎄")
-                                        temp <- str_replace_all(temp, "6", "🎁")
-                                        temp <- str_replace_all(temp, "7", "🎀")
-                                        
-                                        return(temp)
-                                      })
-                                      )
-  
-  string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  
-  missing <- map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x))
-  which(missing == FALSE)
-  
-  permutationen$santa_rest_perm_rep[484]
-  permutationen$santa_rest_perm[484]
-  
-  solution$solution1 <- paste (solution$solution1, permutationen$santa_rest_perm_rep[484], collapse = "") 
-  
-  string <- paste(solution$solution1, solution$solution2, solution$solution3, collapse = "")
-  all(map_lgl(permutationen$santa_1_2_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  all(map_lgl(permutationen$santa_rest_perm_rep, ~ str_detect(string = string, pattern = .x)))
-  
+if (check(solution_list = solution$solution_renamed, permutation_list = permutationen$permutation_renamed) == FALSE) {
+  date <- Sys.Date()
+  ####
   submission <- read_csv("02_Data/sample_submission.csv")
-
-  submission$schedule[1] <- paste(utf8::utf8_print(solution$solution1,quote = FALSE),collapse= "")
-  submission$schedule[2] <- paste(utf8::utf8_print(solution$solution2,quote = FALSE),collapse= "")
-  submission$schedule[3] <- paste(utf8::utf8_print(solution$solution3,quote = FALSE),collapse= "")
   
-  write_csv(submission, "03_submission/santa_submission_1112.csv", quote = c("none"))
+  submission$schedule[1] <- paste(utf8::utf8_print(solution$solution_renamed$solution1,quote = FALSE),collapse= "")
+  submission$schedule[2] <- paste(utf8::utf8_print(solution$solution_renamed$solution2,quote = FALSE),collapse= "")
+  submission$schedule[3] <- paste(utf8::utf8_print(solution$solution_renamed$solution3,quote = FALSE),collapse= "")
+  
+  write_csv(submission, glue("03_submission/santa_submission_{date}.csv"), quote = c("none"))
+  
+}
