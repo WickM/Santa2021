@@ -20,7 +20,35 @@ options(stringsAsFactors = FALSE)
 #' distance_2_1 = Distance form String2 to String1
 combin_distance <- function(var1, var2) {
   
-  if (is.na(var2) != TRUE) {
+  #Wildcard 
+  #' Es wird var 1 mit 2 verglichen wenn einer der beiden eine Wildcard beinhaltet wird diese 
+  #' mit dem Wert des anderen and der jeweiligen Position ersetzt 
+  #' bei var1 [2] var2[1] ...
+  #' Kommt die Wildcard in var1 an erster Stelle vor wird diese ignoriert
+  if (is.na(var2) != TRUE & (str_detect(var1, "X") == TRUE | str_detect(var2, "X") == TRUE) ){
+    ind <- nchar(var1)
+    
+    X_var1 <- str_which(str_split(var1, pattern = "", simplify = TRUE), "X")
+    x_var2 <- str_which(str_split(var2, pattern = "", simplify = TRUE), "X")
+    
+    if(length(X_var1) != 0 & X_var1 != 1) {var1 <- str_replace(var1, pattern = "X", replacement = 
+                                                   str_sub(var2, start = X_var1-1, end = X_var1-1)) }
+  
+    if(length(x_var2) != 0) {var2 <- str_replace(var2, pattern = "X", replacement = 
+                                           str_sub(var1, start = x_var2+1, end = x_var2+1)) }
+    
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+    comb_dist <- 7- ind
+    
+    return(comb_dist) 
+    } 
+  
+  #non wildcard
+  if (is.na(var2) != TRUE & (str_detect(var1, "X") == FALSE & str_detect(var2, "X") == FALSE)) {
     ind <- nchar(var1)
     repeat {
       ind <- ind -1
@@ -30,7 +58,9 @@ combin_distance <- function(var1, var2) {
     comb_dist <- 7- ind
     
     return(comb_dist)
-  } else {return(0)}
+  } 
+  
+  if (is.na(var2) == TRUE) {return(7)}
 }
 
 generate_tibble <- function(combin_list) {
