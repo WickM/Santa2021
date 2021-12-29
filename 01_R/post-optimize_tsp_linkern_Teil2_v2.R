@@ -118,7 +118,7 @@ breaks <- 0
 clo <- paste0(c("-K 1",
                 "-s 1337",
                 #paste0("-S ", here::here("tsp_solver", "linkern.tour")),
-                "-t 36*2.5",
+                "-t 3600*2.5",
                 "-R 1000000000"), collapse = " ")
 
 start <- Sys.time()
@@ -132,7 +132,7 @@ for(ii in 1:1000){# ii <- 1
   } else {
     cat("\n")
     child <- inc
-    ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), names(pert$perms))),
+    ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), pert$perms)),
                   row.names(santa_matrix_full))
     sm1 <- santa_matrix_full[ind1, ind1]
     sm1[sm1 == 7] <- Inf
@@ -145,7 +145,7 @@ for(ii in 1:1000){# ii <- 1
                                      verbose = FALSE
     )
     
-    ind2 <- match(sort(union(attr(child[[pert$to]], "names"), names(pert$perms))),
+    ind2 <- match(sort(union(attr(child[[pert$to]], "names"), pert$perms)),
                   row.names(santa_matrix_full))
     sm2 <- santa_matrix_full[ind2, ind2]
     sm2[sm2 == 7] <- Inf

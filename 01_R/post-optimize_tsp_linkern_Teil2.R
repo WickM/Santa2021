@@ -121,7 +121,7 @@ perturbate.v2 <- function(tours){# tours <- santa_tour
     "break"
   } else {
     perms <- perms[substrs != "12"]
-    return(list("perms" = perms, "from" = ind_from, "to" = ind_to))
+    return(list("perms" = names(perms), "from" = ind_from, "to" = ind_to))
   }
 }
 
@@ -146,7 +146,7 @@ for(ii in 1:1000){# ii <- 1
   } else {
     cat("\n")
     child <- inc
-    ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), names(pert$perms))),
+    ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), pert$perms)),
                   row.names(santa_matrix_full))
     sm1 <- santa_matrix_full[ind1, ind1]
     sm1[sm1 == 7] <- Inf
@@ -159,7 +159,7 @@ for(ii in 1:1000){# ii <- 1
                                      verbose = FALSE
     )
     
-    ind2 <- match(sort(union(attr(child[[pert$to]], "names"), names(pert$perms))),
+    ind2 <- match(sort(union(attr(child[[pert$to]], "names"), pert$perms)),
                   row.names(santa_matrix_full))
     sm2 <- santa_matrix_full[ind2, ind2]
     sm2[sm2 == 7] <- Inf
