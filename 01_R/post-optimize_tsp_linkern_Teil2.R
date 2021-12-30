@@ -81,46 +81,6 @@ perturbate <- function(tours){# tours <- santa_tour
     "break"
   } else {
     perms <- perms[substrs != "12"]
-    return(list("perms" = perms, "from" = ind_from, "to" = ind_to))
-  }
-}
-perturbate.v2 <- function(tours){# tours <- santa_tour
-  
-  tl <- lapply(tours, tour_lengths, cyclic = TRUE)
-  take <- lapply(tl, sum) %>% unlist
-  ind_from <- which.max(take)
-  ind_to <- which.min(take)
-  
-  # head(tours[[ind_from]], 12)
-  # head(tl[[ind_from]], 12)
-  # diff(which(tl[[ind_from]] == 6))
-  
-  # if seventh dist is a 6 then permutation from seven to eight is of dist 6.
-  # hence if i-th and j-th dist is a 6 then cut out permutations i+1 to j.
-  
-  # cut and move a cluster such that maximal cluster length is halve of the 
-  # difference of the longest and the shortest subtour
-  max_cl <- abs((sum(tl[[ind_to]]) - sum(tl[[ind_from]])) / 2)
-  cluster_lengths <- paste0(tl[[ind_from]], collapse = "") %>% strsplit(., "6") %>% 
-    unlist %>% sapply(., function(x) sum(as.numeric(unlist(strsplit(x, ""))))) %>% 
-    unname
-  use_size <- sample(cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl], 1)
-  use_cluster <- sample(which(cluster_lengths == use_size), 1)
-  ind_cluster6 <- which(tl[[ind_from]] == 6)[use_cluster]
-  
-  if(use_cluster == 1) ind_perms <- seq(1, ind_cluster6)
-  if(use_cluster == length(cluster_lengths)) ind_perms <- seq(ind_cluster6+1, length(tours[[ind_from]]))
-  if(use_cluster > 1 & use_cluster < length(cluster_lengths)) {
-    ind_cluster6_low <- which(tl[[ind_from]] == 6)[use_cluster - 1]
-    ind_perms <- seq(ind_cluster6_low + 1, ind_cluster6)
-  }
-  
-  perms <- tours[[ind_from]][ind_perms]
-  substrs <- substr(names(perms), 1, 2)
-  if(all(substrs == "12")){
-    "break"
-  } else {
-    perms <- perms[substrs != "12"]
     return(list("perms" = names(perms), "from" = ind_from, "to" = ind_to))
   }
 }

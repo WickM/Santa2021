@@ -99,7 +99,7 @@ perturbate.v2 <- function(tours){# tours <- santa_tour
   n_move <- 0
   tstr_to <- gen_tour_string(tours[[ind_to]])
   cand <- grep("^12", names(tours[[ind_from]]), value = TRUE, invert = TRUE)
-  cand <- names(which(sapply(sapply(nm, grep, tstr_to), length) == 1))
+  cand <- names(which(sapply(sapply(cand, grep, tstr_to), length) == 1))
   
   if(length(cand) == 0){
     "break"
@@ -122,9 +122,8 @@ clo <- paste0(c("-K 1",
                 "-R 1000000000"), collapse = " ")
 
 start <- Sys.time()
-cat("\rii = ", 0, "\tmax = ", mx_inc, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
 for(ii in 1:1000){# ii <- 1
-  
+  if(ii == 1) cat("\rii = ", 0, "\tmax = ", mx_inc, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
   pert <- perturbate.v2(inc)
   if(identical(pert, "break")){
     breaks <- breaks+1
