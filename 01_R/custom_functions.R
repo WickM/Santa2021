@@ -22,7 +22,7 @@ combin_distance <- function(var1, var2) {
   
   #Wildcard 
   #' Es wird var 1 mit 2 verglichen wenn einer der beiden eine Wildcard beinhaltet wird diese 
-  #' mit dem Wert des anderen and der jeweiligen Position ersetzt 
+  #' mit nacheinander mit den Werten 1 bis 7 ersetzt die kürzeste distanz wird rückgemeldet
   #' bei var1 [2] var2[1] ...
   #' Kommt die Wildcard in var1 an erster Stelle vor wird diese ignoriert
   if (is.na(var2) != TRUE & (str_detect(var1, "X") == TRUE | str_detect(var2, "X") == TRUE) ){
@@ -31,24 +31,62 @@ combin_distance <- function(var1, var2) {
     X_var1 <- str_which(str_split(var1, pattern = "", simplify = TRUE), "X")
     x_var2 <- str_which(str_split(var2, pattern = "", simplify = TRUE), "X")
     
-    if(length(X_var1) != 0 & X_var1 != 1) {var1 <- str_replace(var1, pattern = "X", replacement = 
-                                                   str_sub(var2, start = X_var1-1, end = X_var1-1)) }
+    if(length(X_var1) != 0 ) {
+      
+      wildcard_distance <- tibble ("var_n" = seq (1,7), 
+                                   "var1" =  var1, 
+                                   "var2" =  var2)
+      
+      wildcard_distance$var1 <- map_chr(as.character(seq (1,7)), ~ {str_replace(var1, 
+                                                                  pattern = "X", 
+                                                                  replacement = .x)})
+      
+      
+      wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
+        repeat {
+          ind <- ind -1
+          match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
+          if (match == TRUE | ind == 0) {break}
+        }
+        
+        comb_dist <- 7- ind
+        
+      })
+      
+      return(wildcard_distance$distance [which.min(wildcard_distance$distance)])
+      
+      }
   
-    if(length(x_var2) != 0) {var2 <- str_replace(var2, pattern = "X", replacement = 
-                                           str_sub(var1, start = x_var2+1, end = x_var2+1)) }
+    if(length(x_var2) != 0) {
+      wildcard_distance <- tibble ("var_n" = seq (1,7), 
+                                                          "var1" =  var1, 
+                                                          "var2" =  var2)
     
-    repeat {
-      ind <- ind -1
-      match <- ifelse (stringr::str_sub(var1, -ind) == stringr::str_sub(var2, 1, ind), TRUE, FALSE)
-      if (match == TRUE | ind == 0) {break}
+    wildcard_distance$var2 <- map_chr(as.character(seq (1,7)), ~ {str_replace(var2, 
+                                                                              pattern = "X", 
+                                                                              replacement = .x)})
+    
+    
+    wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
+      repeat {
+        ind <- ind -1
+        match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
+        if (match == TRUE | ind == 0) {break}
+      }
+      
+      comb_dist <- 7- ind
+      
+    })
+    
+    return(wildcard_distance$distance [which.min(wildcard_distance$distance)]) 
     }
-    comb_dist <- 7- ind
+  }
     
-    return(comb_dist) 
-    } 
-  
   #non wildcard
   if (is.na(var2) != TRUE & (str_detect(var1, "X") == FALSE & str_detect(var2, "X") == FALSE)) {
+
+  if (is.na(var2) != TRUE) {
+
     ind <- nchar(var1)
     repeat {
       ind <- ind -1
@@ -58,9 +96,7 @@ combin_distance <- function(var1, var2) {
     comb_dist <- 7- ind
     
     return(comb_dist)
-  } 
-  
-  if (is.na(var2) == TRUE) {return(7)}
+  } else {return(0)}
 }
 
 generate_tibble <- function(combin_list) {
