@@ -141,3 +141,4 @@ for(ii in 1:1000){# ii <- 1
   }
   
 }
+write_rds(inc, here::here("02_Data/post-optim-Teil2.rds"))
