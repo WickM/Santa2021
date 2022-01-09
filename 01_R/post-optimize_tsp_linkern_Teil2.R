@@ -97,7 +97,7 @@ clo <- paste0(c("-K 1",
 
 start <- Sys.time()
 
-for(ii in 1:1000){# ii <- 1
+for(ii in 19:150){# ii <- 1
   if(ii == 1) cat("\rii = ", 0, "\tmax = ", mx_inc, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
   pert <- perturbate(inc)
   if(identical(pert, "break")){
@@ -106,6 +106,7 @@ for(ii in 1:1000){# ii <- 1
   } else {
     cat("\n")
     child <- inc
+    
     ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), pert$perms)),
                   row.names(santa_matrix_full))
     sm1 <- santa_matrix_full[ind1, ind1]
@@ -133,12 +134,28 @@ for(ii in 1:1000){# ii <- 1
    
     mx_child <- lapply(child, tour_lengths, cyclic = TRUE) %>% lapply(., sum) %>% unlist %>% max 
     mxs <- c(mxs, mx_child)
-    if(mx_child < mx_inc) {
+
+    behalte <- mx_child < mx_inc
+    if(!behalte){
+      pt <- exp(-((mx_child - mx_inc)/5) / (.95^(ii-28)))
+      behalte <- runif(1) <= pt
+    }
+    
+    if(behalte){
       inc <- child
       mx_inc <- mx_child
     }
-    cat("\rii = ", ii, "\tmax = ", mx_child, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
+    
+    cat("\rii = ", ii, "\tmax = ", mx_child, "\tno mx = ", length(mxs), 
+        "\truntime = ", diff_time(Sys.time(), start),
+        "\tnow:", format(Sys.time(), "%H:%M"))
+  }
+  
+  if(mx_inc < mx_best){
+    best <- inc
+    mx_best <- mx_inc
+    write_rds(best, here::here("02_Data", paste0("post-optim-Teil2-best-", ii, ".rds")))
   }
   
 }
-write_rds(inc, here::here("02_Data/post-optim-Teil2.rds"))
+

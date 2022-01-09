@@ -76,7 +76,7 @@ perturbate <- function(tours){# tours <- santa_tour
   ind_cluster6 <- which(tl[[ind_from]] == 6)[use_cluster]
   
   if(use_cluster == 1) ind_perms <- seq(1, ind_cluster6)
-  if(use_cluster == length(cluster_lengths)) ind_perms <- seq(ind_cluster6+1, length(tours[[ind_from]]))
+  if(use_cluster == length(cluster_lengths)) ind_perms <- seq(max(which(tl[[ind_from]] == 6))+1, length(tours[[ind_from]]))
   if(use_cluster > 1 & use_cluster < length(cluster_lengths)) {
     ind_cluster6_low <- which(tl[[ind_from]] == 6)[use_cluster - 1]
     ind_perms <- seq(ind_cluster6_low + 1, ind_cluster6)
@@ -88,7 +88,7 @@ perturbate <- function(tours){# tours <- santa_tour
     "break"
   } else {
     perms <- perms[substrs != "12"]
-    return(list("perms" = perms, "from" = ind_from, "to" = ind_to))
+    return(list("perms" = names(perms), "from" = ind_from, "to" = ind_to))
   }
 }
 perturbate.v2 <- function(tours){# tours <- santa_tour
@@ -126,6 +126,9 @@ perturbate.v3 <- function(tours){# tours <- santa_tour
   cand <- grep("^12", names(tours[[ind_from]]), value = TRUE, invert = TRUE)
   cand <- names(which(sapply(sapply(cand, grep, tstr_to), length) == 1))
   cand <- cand[tl[[ind_from]][cand] > 1]
+  # select cand such that remaining perms are not of dist 7
+  ind <- match(cand, names(tours[[ind_from]]))
+  cand <- cand[santa_matrix_full[cbind(names(tours[[ind_from]])[ind-1], names(tours[[ind_from]])[ind+1])] < 7]
   
   if(length(cand) == 0){
     "break"
@@ -148,13 +151,14 @@ perturbate.v3 <- function(tours){# tours <- santa_tour
       
       tours[[ind_from]] <- tours[[ind_from]][-which(names(tours[[ind_from]]) == perm)]
     }
-    
     return(list("tours" = tours, "from" = ind_from))
   }
 }
 
 inc <- santa_tour
+best <- inc 
 mx_inc <- lapply(inc, tour_lengths, cyclic = TRUE) %>% lapply(., sum) %>% unlist %>% max 
+mx_best <- mx_inc
 mxs <- mx_inc
 breaks <- 0
 clo <- paste0(c("-K 1",
@@ -164,12 +168,58 @@ clo <- paste0(c("-K 1",
                 "-R 1000000000"), collapse = " ")
 
 start <- Sys.time()
-for(ii in 1:1000){# ii <- 1
+for(ii in 1:150){# ii <- 1
   if(ii == 1) cat("\rii = ", 0, "\tmax = ", mx_inc, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
   pert <- perturbate.v3(inc)
   if(identical(pert, "break")){
-    breaks <- breaks+1
-    cat("\rii = ", ii, "\tbreaks = ", breaks, "\truntime = ", diff_time(Sys.time(), start))
+    pert <- perturbate(inc)
+    if(identical(pert, "break")){
+      breaks <- breaks+1
+      cat("\rii = ", ii, "\tbreaks = ", breaks, "\truntime = ", diff_time(Sys.time(), start))
+    } else {
+      cat("\n")
+      child <- inc
+      ind1 <- match(sort(setdiff(attr(child[[pert$from]], "names"), pert$perms)),
+                    row.names(santa_matrix_full))
+      sm1 <- santa_matrix_full[ind1, ind1]
+      sm1[sm1 == 7] <- Inf
+      sm1 <- sm1[order(row.names(sm1)),][, sort(row.names(sm1))]
+      atsp <- ATSP(sm1)
+      child[[pert$from]] <-  solve_TSP(atsp, 
+                                       method = "linkern", 
+                                       as_TSP = TRUE, 
+                                       control = list("clo" = clo), 
+                                       verbose = FALSE
+      )
+      
+      ind2 <- match(sort(union(attr(child[[pert$to]], "names"), pert$perms)),
+                    row.names(santa_matrix_full))
+      sm2 <- santa_matrix_full[ind2, ind2]
+      sm2[sm2 == 7] <- Inf
+      sm2 <- sm2[order(row.names(sm2)),][, sort(row.names(sm2))]
+      atsp <- ATSP(sm2)
+      child[[pert$to]] <-  solve_TSP(atsp, 
+                                     method = "linkern", 
+                                     as_TSP = TRUE, 
+                                     control = list("clo" = clo), 
+                                     verbose = FALSE)
+      
+      mx_child <- lapply(child, tour_lengths, cyclic = TRUE) %>% lapply(., sum) %>% unlist %>% max 
+      mxs <- c(mxs, mx_child)
+      
+      behalte <- mx_child < mx_inc
+      if(!behalte){
+        pt <- exp(-((mx_child - mx_inc)/5) / (.95^ii))
+        behalte <- runif(1) <= pt
+      }
+      
+      if(behalte){
+        inc <- child
+        mx_inc <- mx_child
+      }
+      
+      cat("\rii = ", ii, "\tmax = ", mx_child, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
+    }
   } else {
     cat("\n")
     child <- pert$tours
@@ -191,10 +241,23 @@ for(ii in 1:1000){# ii <- 1
     mx_child <- lapply(child, tour_lengths, cyclic = TRUE) %>% lapply(., sum) %>% unlist %>% max 
     mxs <- c(mxs, mx_child)
     
-    inc <- child
-    mx_inc <- mx_child
+    behalte <- mx_child < mx_inc
+    if(!behalte){
+      pt <- exp(-((mx_child - mx_inc)/5) / (.95^ii))
+      behalte <- runif(1) <= pt
+    }
+    
+    if(behalte){
+      inc <- child
+      mx_inc <- mx_child
+    }
     
     cat("\rii = ", ii, "\tmax = ", mx_child, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
+  }
+  
+  if(mx_inc < mx_best){
+    best <- inc
+    mx_best <- mx_inc
   }
   
 }
