@@ -16,7 +16,9 @@ diff_time <- function(t2, t1){
          add.lead(floor(dt %% 60), 2), ".", 
          gsub("0.", "", sprintf("%2.1f", round(dt%%60 - floor(dt %% 60), 1)), fixed = TRUE))
 }
-
+resample <- function(x, ...){
+  x[sample(1:length(x), ...)]
+}
 ###-Load Data----
 unzip(here::here("02_Data/atsp_full.zip"))
 santa_tour <- readRDS(here::here("02_Data/tsp_tour_teile_2512-custom-start-solution.rds"))
@@ -48,8 +50,9 @@ perturbate <- function(tours){# tours <- santa_tour
   
   tl <- lapply(tours, tour_lengths, cyclic = TRUE)
   take <- lapply(tl, sum) %>% unlist
-  ind_from <- which.max(take)
-  ind_to <- which.min(take)
+  ind_to <- sample(1:3, 1, p = max(take) - take + .5)
+  ind_from <- sample(1:3, 1, p = take - min(take) + .5)
+  
   
   # head(tours[[ind_from]], 12)
   # head(tl[[ind_from]], 12)
@@ -64,8 +67,23 @@ perturbate <- function(tours){# tours <- santa_tour
   cluster_lengths <- paste0(tl[[ind_from]], collapse = "") %>% strsplit(., "6") %>% 
     unlist %>% sapply(., function(x) sum(as.numeric(unlist(strsplit(x, ""))))) %>% 
     unname
-  use_size <- sample(cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl], 1)
-  use_cluster <- sample(which(cluster_lengths == use_size), 1)
+  dobreak <- FALSE
+  while(length(cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl]) == 0){
+    max_cl <- max_cl*2
+  } 
+  
+  if(length(cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl]) == 1){
+    use_size <- cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl]
+  } else {
+    use_size <- sample(cluster_lengths[cluster_lengths>0&cluster_lengths<=max_cl], 1)  
+  }
+  
+  if(length(which(cluster_lengths == use_size)) == 1){
+    use_cluster <- which(cluster_lengths == use_size)
+  } else {
+    use_cluster <- sample(which(cluster_lengths == use_size), 1)
+  }
+  
   ind_cluster6 <- which(tl[[ind_from]] == 6)[use_cluster]
   
   if(use_cluster == 1) ind_perms <- seq(1, ind_cluster6)
@@ -77,12 +95,13 @@ perturbate <- function(tours){# tours <- santa_tour
   
   perms <- tours[[ind_from]][ind_perms]
   substrs <- substr(names(perms), 1, 2)
+  
   if(all(substrs == "12")){
     "break"
   } else {
     perms <- perms[substrs != "12"]
     return(list("perms" = names(perms), "from" = ind_from, "to" = ind_to))
-  }
+  } 
 }
 
 inc <- santa_tour
@@ -97,7 +116,7 @@ clo <- paste0(c("-K 1",
 
 start <- Sys.time()
 
-for(ii in 19:150){# ii <- 1
+for(ii in 42:150){# ii <- 1
   if(ii == 1) cat("\rii = ", 0, "\tmax = ", mx_inc, "\tno mx = ", length(mxs), "\truntime = ", diff_time(Sys.time(), start))
   pert <- perturbate(inc)
   if(identical(pert, "break")){
@@ -131,10 +150,10 @@ for(ii in 19:150){# ii <- 1
                                    as_TSP = TRUE, 
                                    control = list("clo" = clo), 
                                    verbose = FALSE)
-   
+    
     mx_child <- lapply(child, tour_lengths, cyclic = TRUE) %>% lapply(., sum) %>% unlist %>% max 
     mxs <- c(mxs, mx_child)
-
+    
     behalte <- mx_child < mx_inc
     if(!behalte){
       pt <- exp(-((mx_child - mx_inc)/5) / (.95^(ii-28)))
