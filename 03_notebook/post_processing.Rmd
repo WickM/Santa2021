@@ -1,0 +1,47 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(TSP)
+library(tidyverse)
+```
+
+```{r}
+
+source("01_R/custom_functions.R")
+#####Prep solution----
+#
+here::set_here()
+load(here::here("02_Data/wildcards_postprocessing.RData"))
+```
+
+
+
+```{r}
+matrix <- cluster_matrix$solution1$matrix[[1]]
+cluster_tour <- cluster_matrix$solution1$cluster_tour
+
+tour_data <- generate_santa_tour(dat = matrix)
+tour <- solve_TSP(x = tour_data, method = "cheapest_insertion" , as_TSP = TRUE,  two_opt = TRUE )
+
+sum(imap_dbl(names(tour), ~combin_distance(var1 = .x, var2 = names(tour)[.y +1])))
+sum(imap_dbl(cluster_tour, ~combin_distance(var1 = .x, var2 = cluster_tour[.y +1])))
+
+perm_begin <- map_chr(santa_cluster, ~ pluck(.x, "cluster") [1])
+
+ind <- map_dbl(cluster, ~ pluck(.x, "ind_from") -1)
+perm_ende <- solution_permutation[ind]
+
+tour <- map_dbl(seq(1, 100),
+                ~{tour <- generate_santa_tour(dat = santa_teile_matrix, method = "cheapest_insertion", verbose = FALSE)
+                  distance <- sum(imap_dbl(names(tour), ~combin_distance(var1 = .x, var2 = names(tour)[.y +1])))
+                  cli::cli_alert_info(text = "repetition Nr{.x}")
+                  return(distance)
+                  }) 
+
+min(tour)
+
+```
+

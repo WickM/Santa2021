@@ -20,72 +20,29 @@ options(stringsAsFactors = FALSE)
 #' distance_2_1 = Distance form String2 to String1
 combin_distance <- function(var1, var2) {
   
+  if (is.null(var1)) {var1 <- "7777777"}
+  if (is.null(var2)) {var2 <- "7777777"}
+  
   #Wildcard 
-  #' Es wird var 1 mit 2 verglichen wenn einer der beiden eine Wildcard beinhaltet wird diese 
-  #' mit nacheinander mit den Werten 1 bis 7 ersetzt die kürzeste distanz wird rückgemeldet
-  #' bei var1 [2] var2[1] ...
-  #' Kommt die Wildcard in var1 an erster Stelle vor wird diese ignoriert
-  if (is.na(var2) != TRUE & (str_detect(var1, "X") == TRUE | str_detect(var2, "X") == TRUE) ){
-    ind <- nchar(var1)
+  if (is.na(var2) != TRUE & (str_detect(var1, "X") == TRUE | str_detect(var2, "X") == TRUE) ) {
     
     X_var1 <- str_which(str_split(var1, pattern = "", simplify = TRUE), "X")
     x_var2 <- str_which(str_split(var2, pattern = "", simplify = TRUE), "X")
     
     if(length(X_var1) != 0 ) {
-      
-      wildcard_distance <- tibble ("var_n" = seq (1,7), 
-                                   "var1" =  var1, 
-                                   "var2" =  var2)
-      
-      wildcard_distance$var1 <- map_chr(as.character(seq (1,7)), ~ {str_replace(var1, 
-                                                                  pattern = "X", 
-                                                                  replacement = .x)})
-      
-      
-      wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
-        repeat {
-          ind <- ind -1
-          match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
-          if (match == TRUE | ind == 0) {break}
-        }
-        
-        comb_dist <- 7- ind
-        
-      })
-      
-      return(wildcard_distance$distance [which.min(wildcard_distance$distance)])
-      
+      wildcard_dist <- wildcard_distance(var1 = var1, var2 = var2, ind_wildcard = 1)
+      return(wildcard_dist)
       }
   
     if(length(x_var2) != 0) {
-      wildcard_distance <- tibble ("var_n" = seq (1,7), 
-                                                          "var1" =  var1, 
-                                                          "var2" =  var2)
-    
-    wildcard_distance$var2 <- map_chr(as.character(seq (1,7)), ~ {str_replace(var2, 
-                                                                              pattern = "X", 
-                                                                              replacement = .x)})
-    
-    
-    wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
-      repeat {
-        ind <- ind -1
-        match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
-        if (match == TRUE | ind == 0) {break}
-      }
-      
-      comb_dist <- 7- ind
-      
-    })
-    
-    return(wildcard_distance$distance [which.min(wildcard_distance$distance)]) 
+      wildcard_dist <- wildcard_distance(var1 = var1, var2 = var2, ind_wildcard = 2)
+      return(wildcard_dist)
     }
   }
     
   #non wildcard
   if (is.na(var2) != TRUE & (str_detect(var1, "X") == FALSE & str_detect(var2, "X") == FALSE)) {
 
-  if (is.na(var2) != TRUE) {
 
     ind <- nchar(var1)
     repeat {
@@ -96,7 +53,54 @@ combin_distance <- function(var1, var2) {
     comb_dist <- 7- ind
     
     return(comb_dist)
-  } else {return(0)}
+  } else {return(7)}
+}
+
+#' In de rWildcard permutation wird jede Zahl von 1-7 an jeder position des vectors getestet
+wildcard_distance <- function(var1, var2, ind_wildcard){
+  
+  wildcard <- ifelse(ind_wildcard == 1 , var1, var2)
+  ind <- nchar(wildcard)
+  chr_missing <- setdiff(c("1","2","3","4","5","6","7"), str_split(wildcard, pattern = "", simplify = TRUE))
+  
+  wildcard <- str_replace(wildcard, 
+                          pattern = "X", 
+                          replacement = chr_missing)
+  
+  wildcard_distance <- tibble ("var1" =  var1, 
+                               "var2" =  var2)
+  
+  wildcard_distance[ind_wildcard] <- wildcard
+  
+  wildcard_vec <- map(seq(1,7), ~{
+    wildcard_temp  <- str_replace(wildcard, 
+                                  pattern = str_split(wildcard, pattern = "", simplify = TRUE)[.x], 
+                                  replacement = "X") 
+    
+    wildcard_temp_vec <- map_chr(as.character(seq (1,7)), ~ {str_replace(wildcard_temp, pattern = "X", replacement = .x)})
+    
+    return(wildcard_temp_vec)
+    
+  }) %>% 
+    flatten_chr()
+  
+  if (ind_wildcard == 1) {wildcard_distance <- tibble ("var1" =  wildcard_vec, "var2" =  var2)}
+  if (ind_wildcard == 2) {wildcard_distance <- tibble ("var1" =  var1, "var2" =  wildcard_vec)}
+  
+  wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+    
+    comb_dist <- 7- ind
+    
+  })
+  
+  return(wildcard_distance$distance [which.min(wildcard_distance$distance)])
+  
+  
 }
 
 generate_tibble <- function(combin_list) {
@@ -123,12 +127,12 @@ generate_dist_matrix_teil2 <- function(permutation_vector) {
   combinat <- combinat::combn(x = permutation_vector, m = 2, simplify = FALSE)
   dat <- generate_tibble(combinat)
   
-  plan(multisession, workers = future::availableCores())
-  dat$distance_perm_combin <- furrr::future_map_dbl(
+  #plan(multisession, workers = future::availableCores())
+  dat$distance_perm_combin <- map_dbl(
     combinat, ~ combin_distance(.x[1], .x[2])
   )
   
-  dat$distance_combin_perm <- furrr::future_map_dbl(
+  dat$distance_combin_perm <- map_dbl(
     combinat, ~ combin_distance(.x[2], .x[1])
   )
   
@@ -222,12 +226,13 @@ santa_submission_submission_file <- function(solution, file) {
 
 #' Funktion mit welcher der Datensatz umgewandelt un dem solver übergeben wird
 #' 
-generate_santa_tour <- function(dat, method = "linkern", control = NULL, verbose =TRUE) {
+generate_santa_tour <- function(dat) {
+  require(TSP)
   
   santa_tsp_data <- dat %>% 
     select(-dataset) %>% 
     mutate(across(.cols = everything(), ~replace_na(.x, Inf))) %>% 
-    mutate(across(.cols = everything(), ~ifelse(.x == 7, Inf, .x))) %>% 
+    #mutate(across(.cols = everything(), ~ifelse(.x == 7, Inf, .x))) %>% 
     as.data.frame()
   
   row.names(santa_tsp_data) <- santa_tsp_data$permutation
@@ -237,11 +242,9 @@ generate_santa_tour <- function(dat, method = "linkern", control = NULL, verbose
     as.matrix()
   
   santa_tsp_data <- santa_tsp_data[order(row.names(santa_tsp_data)), ][, sort(row.names(santa_tsp_data))]
-  atsp <- ATSP(santa_tsp_data)
+  atsp <- TSP::ATSP(santa_tsp_data)
   
-  tour <- solve_TSP(atsp, method = method, as_TSP = TRUE, control =control, verbose	 =  verbose)
-  
-  return(tour)
+  return(atsp)
 }
 ###
 
@@ -330,3 +333,98 @@ check <- function(solution_list, permutation_list) {
   
   return(submission_error)
 }
+
+cluster_identifizieren <- function(solution_permutation, solution_distance, santa_1_2_perm, cluster_distance) {
+  ind <- which(solution_distance >= cluster_distance)
+  ind <- c(1, ind, length(solution_permutation))
+  ind <- unique(ind)
+  
+  cluster <- imap(ind[seq_along(ind)-1], ~ {
+    ind_x <- .x+1
+    if (.x == 1) {ind_x <- .x}
+    
+    ind_y <- ind[.y+1]
+    cluster <- solution_permutation[seq(ind_x, ind_y)]
+    cluster_distance <- solution_distance[seq(ind_x, ind_y)]
+    cluster_length <- length(cluster_distance)
+    santa1_2_perm <- any(santa_1_2_perm %in% cluster)
+    ind_from <- ind_x
+    ind_to <- ind_y
+    cluster_begin <- solution_permutation[ind_from]
+    cluster_end <- solution_permutation[ind_to]
+    
+    return(list("cluster" = cluster,
+                "cluster_distance" = cluster_distance,
+                "cluster_length" = cluster_length,
+                "santa1_2_perm" = santa1_2_perm, 
+                "ind_from" = ind_from, 
+                "ind_to" = ind_to,
+                "cluster_begin" = cluster_begin, 
+                "cluster_end" = cluster_end)
+    )
+  })
+  
+  return(cluster)
+  
+}
+
+fix_wildcard <- function(var1, var2, ind_wildcard){
+  
+  wildcard <- ifelse(ind_wildcard == 1 , var1, var2)
+  ind <- nchar(wildcard)
+  chr_missing <- setdiff(c("1","2","3","4","5","6","7"), str_split(wildcard, pattern = "", simplify = TRUE))
+  
+  wildcard <- str_replace(wildcard, 
+                          pattern = "X", 
+                          replacement = chr_missing)
+  
+  wildcard_distance <- tibble ("var1" =  var1, 
+                               "var2" =  var2)
+  
+  wildcard_distance[ind_wildcard] <- wildcard
+  
+  wildcard_vec <- map(seq(1,7), ~{
+    wildcard_temp  <- str_replace(wildcard, 
+                                  pattern = str_split(wildcard, pattern = "", simplify = TRUE)[.x], 
+                                  replacement = "X") 
+    
+    wildcard_temp_vec <- map_chr(as.character(seq (1,7)), ~ {str_replace(wildcard_temp, pattern = "X", replacement = .x)})
+    
+    return(wildcard_temp_vec)
+    
+  }) %>% 
+    flatten_chr()
+  
+  if (ind_wildcard == 1) {wildcard_distance <- tibble ("var1" =  wildcard_vec, "var2" =  var2)}
+  if (ind_wildcard == 2) {wildcard_distance <- tibble ("var1" =  var1, "var2" =  wildcard_vec)}
+  
+  wildcard_distance$distance <- map2_dbl(.x = wildcard_distance$var1, .y = wildcard_distance$var2, ~ {
+    repeat {
+      ind <- ind -1
+      match <- ifelse (stringr::str_sub(.x, -ind) == stringr::str_sub(.y, 1, ind), TRUE, FALSE)
+      if (match == TRUE | ind == 0) {break}
+    }
+    
+    comb_dist <- 7- ind
+    
+  })
+  
+  wildcard_vec <- map(seq(1,7), ~{
+    wildcard_temp  <- str_replace(wildcard, 
+                                pattern = str_split(wildcard, pattern = "", simplify = TRUE)[.x], 
+                                replacement = "X")
+    wildcard_temp <- rep.int(x =wildcard_temp, 7)
+    
+    return(wildcard_temp)
+    }) %>% 
+    flatten_chr()
+    
+  wildcard_distance$wildcard <- wildcard_vec
+
+  
+  return(list("perm_wildcard" = ifelse(ind_wildcard == 1, wildcard_distance$var1 [which.min(wildcard_distance$distance)],
+                              wildcard_distance$var2 [which.min(wildcard_distance$distance)]),
+              "perm" = wildcard,
+              "wildcard" = wildcard_distance$wildcard [which.min(wildcard_distance$distance)]))
+}
+
