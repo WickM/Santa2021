@@ -20,6 +20,9 @@ options(stringsAsFactors = FALSE)
 #' distance_2_1 = Distance form String2 to String1
 combin_distance <- function(var1, var2) {
   
+  if (is.null(var1)) {var1 <- "7777777"}
+  if (is.null(var2)) {var2 <- "7777777"}
+  
   #Wildcard 
   if (is.na(var2) != TRUE & (str_detect(var1, "X") == TRUE | str_detect(var2, "X") == TRUE) ) {
     

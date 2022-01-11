@@ -15,35 +15,9 @@ library(rlist)
 source("01_R/custom_functions.R")
 #####Prep solution----
 
-santa_solution <- readRDS("02_Data/tsp_tour_teile_1912.rds")
+santa_solution <- readRDS("02_Data/post-optim-Teil2-best-39.rds")
 permutationen <- readRDS("02_Data/permutationen.rds")
 
-# permutationen <- list(
-#   "permutationen" = list (
-#     "santa_1_2_perm" = permutationen$santa_1_2_perm, 
-#     "santa_rest_perm" = permutationen$santa_rest_perm
-#     )
-# )
-# 
-# permutationen <- rlist::list.append(permutationen, 
-#                                     "permutation_renamed" = map(permutationen$permutationen, ~ {
-#                                       temp <- str_replace_all(.x,   "1", "🎅")
-#                                       temp <- str_replace_all(temp, "2", "🤶")
-#                                       temp <- str_replace_all(temp, "3", "🦌")
-#                                       temp <- str_replace_all(temp, "4", "🧝")
-#                                       temp <- str_replace_all(temp, "5", "🎄")
-#                                       temp <- str_replace_all(temp, "6", "🎁")
-#                                       temp <- str_replace_all(temp, "7", "🎀")
-#                                       
-#                                       return(temp)
-#                                     })
-#                                     )
-# 
-# write_rds(permutationen, file = "02_Data/permutationen.rds")
-
-
-
-#solution <- santa_submission(santa_solution, permutationen)
 solution <- santa_solution
 # Step 1 Check alle Permutationen enthalten alle santa permutationen enthalten
 solution_names <- c(names(solution[[1]]), names(solution[[2]]), names(solution[[3]]))
@@ -87,6 +61,7 @@ solution <- rlist::list.append(
     temp <- str_replace_all(temp, "5", "🎄")
     temp <- str_replace_all(temp, "6", "🎁")
     temp <- str_replace_all(temp, "7", "🎀")
+    temp <- str_replace_all(temp, "X", "🌟")
     
     return(temp)
   })

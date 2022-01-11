@@ -62,10 +62,7 @@ santa_cluster <- map2(.x = solution$solution_permutationen,
 ###Cluster optimieren
 #jeden String auf einem eigenen Core
 require(furrr)
-plan(multisession, workers = 3)
-
-
-
+plan(multisession, workers = 8)
 
 
 wildcards_optim <- function(solution, times) {
@@ -151,7 +148,6 @@ wildcards_optim <- function(solution, times) {
       
     }
     
-    
     ###
     tour_data <- generate_santa_tour(dat = wildcards_matrix)
     tour <- solve_TSP(x = tour_data, method = "cheapest_insertion" , as_TSP = TRUE,  two_opt = TRUE)
@@ -175,201 +171,102 @@ wildcards_optim <- function(solution, times) {
     }
     
     
-    ### Clusterweise Tour aufbauen
+    #1 verwendbare Cluster aus Tour identifizieren
+    # Ende Anfang verbindung + distance kleiner als distance in alter lösung 
+    
     perm_begin <-  map_chr(cluster, ~ pluck(.x, "cluster_begin") )
     perm_ende <-   map_chr(cluster, ~ pluck(.x, "cluster_end") )
-    perm_begin_cluster <- c(perm_begin, names(tour)[str_which(string = names(tour), pattern = "X")])
     
-    ind_verwendbare_cluster <-  imap(names(tour), ~ {
-      ifelse((.x %in% perm_ende) & (names(tour)[.y +1] %in% perm_begin_cluster), 
-             which(.x == names(tour)), NA)}) %>% 
-      purrr::discard(~is.na(.x)) %>% 
-      flatten_dbl()
+    ind_verwendbare_cluster <-  imap_dbl(names(tour), ~ {
+      verwendbar <- FALSE
+      perm <- .x
+      perm_ind <- .y
+      
+      if ( (perm %in% perm_ende) & names(tour)[perm_ind +1] %in% perm_begin & perm_ind +1 != length(tour)) {
+        dist_new <- combin_distance(var1 = perm, 
+                                   var2 =  names(tour)[perm_ind +1])
+        
+        cluster_end_old <- keep(cluster, ~ {pluck(.x, "cluster_end") == perm})
+        cluster_begin_old <- keep(cluster, ~ {pluck(.x, "ind_from") == pluck(cluster_end_old, 1,"ind_to") +1})
     
-    cluster_start <- keep(cluster, ~ {pluck(.x, "cluster_end") == names(tour)[ind_verwendbare_cluster[1]] })
-    tour_new <- pluck(cluster_start,1, "cluster")
-      laufvar <- 1
-    #Repeat Schleife zum Tour Aufbau
-    repeat{
-      
-      akt_tour_end <- tour_new[length(tour_new)]
-      
-      cluster_akt <- keep(cluster, ~ {pluck(.x, "cluster_end") == akt_tour_end })
-      
-      ii <- which(names(tour) == akt_tour_end)
-      cluster_begin_new <- keep(cluster, ~ {pluck(.x, "cluster_begin") == names(tour)[ii+1] })
-      cluster_begin_old <- keep(cluster, ~ {pluck(.x, "ind_from") == pluck(cluster_akt,1,"ind_to") +1})
-      
-      if (length(cluster_begin_old) == 0) {cluster_begin_old <- cluster_begin_new} 
-      if (any( pluck(cluster_begin_old,1,"cluster") %in% tour_new)) {cluster_begin_old <- cluster_begin_new} 
-      if (any( pluck(cluster_begin_new, 1,"cluster") %in% tour_new)) {break}
-      
-      ind_wildcards_tour <- str_which(tour_new, pattern = "X")
-      wildcards_cluster <- any(str_detect(string = c(pluck(cluster_begin_new,1,"cluster_begin"), pluck(cluster_begin_old,1,"cluster_begin")),
-                                              pattern = "X"))
-      
-      #'Wenn noch keine oder weniger wie 2 Wildcards in der Tour vorkommen
-      if (length(ind_wildcards_tour) < 2 | wildcards_cluster == FALSE) {
-        dist_new <- combin_distance(var1 = pluck(cluster_akt,1,"cluster_end"), var2 = pluck(cluster_begin_new,1,"cluster_begin") )
-        dist_old <- combin_distance(var1 = pluck(cluster_akt,1,"cluster_end"), var2 = pluck(cluster_begin_old,1,"cluster_begin") )
-        
-        # wenn die neue Tour kürzer ist als die alte
-        if (dist_new <= dist_old) {tour_new <- c(tour_new, pluck(cluster_begin_new,1,"cluster"))}
-        #Wenn die alte kürzer ist als die neue nehme ich die alte sofern die alte lösung in der neuen Tour keine bessere verwendung hat
-        if (dist_old < dist_new) {
-                    cluster_begin_new2 <- keep(cluster, ~ {pluck(.x, "cluster_begin") == names(tour)[ii+1] })
-          dist_new2 <- combin_distance(var1 = pluck(cluster_begin_old,1,"cluster_end"), var2 = pluck(cluster_begin_new2,1,"cluster_begin") )
+        if (length(cluster_begin_old) != 0) {
+          dist_old <- combin_distance(var1 = pluck(cluster_end_old,1,"cluster_end"), 
+                                      var2 = pluck(cluster_begin_old,1,"cluster_begin") )
           
-          #die alte Lösung ist die bessere
-          if (dist_old < dist_new2) {tour_new <- c(tour_new, pluck(cluster_begin_old,1,"cluster"))}
-          #die alte Lösung ist in der neuen Tour besser verwendet
-          if (dist_new2 < dist_old) {tour_new <- c(tour_new, pluck(cluster_begin_new,1,"cluster"))}
-        }
+          if (dist_old > dist_new) {verwendbar <- TRUE}
+        } else {verwendbar <- TRUE}
       }
+      return(verwendbar)
+      })
+    ind_verwendbare_cluster <- which(ind_verwendbare_cluster == 1)
+    ind_verwendbare_cluster <- c(ind_verwendbare_cluster, ind_verwendbare_cluster +1) %>% 
+      sort.int()
+    
+    names_verwendbare_cluster <- names(tour) [ind_verwendbare_cluster]
+    
+    #2 Verwendbare Cluster zusammenhängen
+    
+    tour_cluster <- map(names_verwendbare_cluster, ~{
+      name <- .x
+      keep(cluster, ~{pluck( .x, "cluster_begin") == name | pluck( .x, "cluster_end") == name})
+           }) %>% flatten()
+    
+    tour_cluster <- map(seq(1, length(tour_cluster)), ~ pluck(tour_cluster, .x, "cluster")) %>% 
+      flatten_chr()
+    
+    tour_old <- map(seq(1, length(cluster)), ~ pluck(cluster, .x, "cluster")) %>% 
+      flatten_chr()
+    
+    length(wildcards_solution_old) == length(tour_old)
+    
+    #3 fehlende permutatioen ergänzen
+    ind <- which(!tour_old  %in% tour_cluster)
+    tour_new <- c(tour_cluster, tour_old[ind])
+    
+    all(tour_new %in% tour_old)
+    
+    #4 überzählige Wildcards entfernen besten behalten
+    
+    ind_wildcards <- str_which(tour_new, pattern = "X")
+    if (length(ind_wildcards) > 2) {
       
-      #'Wenn bereits 2 Wildcards in der Tour vorkommen und im cluster eine zusätzliche wildcard kommen würde
-      if (length(ind_wildcards_tour) == 2 & wildcards_cluster == TRUE) {
-          
-          dist_new <- combin_distance(var1 = pluck(cluster_akt,1,"cluster_end"), var2 = pluck(cluster_begin_new,1,"cluster_begin") )
-          dist_old <- combin_distance(var1 = pluck(cluster_akt,1,"cluster_end"), var2 = pluck(cluster_begin_old,1,"cluster_begin") )
-          
-          dist_wildcard <- map_dbl(ind_wildcards_tour, ~{combin_distance(var1 = tour[.x], var2 =  tour[.x+1])})
-          
-          # wenn die neue Tour kürzer ist als die alte und die neue wildcard mehr bringt als die alte
-          if (dist_new <= dist_old) {
-            
-            if (str_detect(string = pluck(cluster_begin_new,1,"cluster_begin"), "X") == FALSE) {
-              tour_new <- c(tour_new, pluck(cluster_begin_new,1,"cluster"))}
-            
-            #Wenn die neue Wildcard besser als eine der alten ist
-            if (str_detect(string = pluck(cluster_begin_new,1,"cluster_begin"), "X") == TRUE) {
-              
-              ind <- which(dist_wildcard > dist_new) [1]
-              ind <- ind_wildcards_tour[ind]
-              
-              #Neue Wildcard ist schlechter als die bisherigen
-              if (is.na(ind) == TRUE) {
-                cluster <- pluck(cluster_begin_new,1,"cluster")
-                perm <- fix_wildcard(var1 = cluster[1], var2 = cluster[2], ind_wildcard = 1)
-                cluster[1] <- perm$perm 
-                tour_new <- c(tour_new, cluster)
-              }
-            
-            #neue Wildcard ist besser
-            if (is.na(ind) == FALSE)  {
-              
-              wildcard_old <-  fix_wildcard(var1 = tour_new[ind], var2 = tour_new[ind +1], ind_wildcard = 1)
-              tour_new[ind] <- wildcard_old
-              
-              tour_new <- c(tour_new, pluck(cluster_begin_new,1,"cluster"))
-            }
-              
-              }
-            
-          }
-          
-          #Wenn die alte kürzer ist als die neue nehme ich die alte sofern die alte lösung in der neuen Tour keine bessere verwendung hat
-          if (dist_old < dist_new) {
-            
-            ii <- which(names(tour) == pluck(cluster_begin_old, 1, "cluster_end"))
-            cluster_begin_new2 <- keep(cluster, ~ {pluck(.x, "cluster_begin") == names(tour)[ii+1] })
-            dist_new2 <- combin_distance(var1 = pluck(cluster_begin_old,1,"cluster_end"), var2 = pluck(cluster_begin_new2,1,"cluster_begin") )
-            
-            ##Keine Wildcard 
-            
-            if (str_detect(string = pluck(cluster_begin_old,1,"cluster_begin"), "X") == FALSE & dist_old < dist_new2) {
-              tour_new <- c(tour_new, pluck(cluster_begin_old, 1,"cluster"))}
-            
-            if (str_detect(string = pluck(cluster_begin_old,1,"cluster_begin"), "X") == FALSE & dist_new2 < dist_old) {
-              tour_new <- c(tour_new, pluck(cluster_begin_new, 1,"cluster"))}
-            
-            ##mit Wildcard 
-            
-            if (str_detect(string = pluck(cluster_begin_old,1,"cluster_begin"), "X") == TRUE & dist_old < dist_new2) {
-              
-              ind <- which(dist_wildcard > dist_new) [1]
-              ind <- ind_wildcards_tour[ind]
-              
-              #Neue Wildcard ist schlechter als die bisherigen
-              if (is.na(ind) == TRUE) {
-                cluster <- pluck(cluster_begin_old,1,"cluster")
-                perm <- fix_wildcard(var1 = cluster[1], var2 = cluster[2], ind_wildcard = 1)
-                cluster[1] <- perm$perm 
-                tour_new <- c(tour_new, cluster)
-              }
-              
-              #neue Wildcard ist besser
-              if (is.na(ind) == FALSE)  {
-                
-                wildcard_old <-  fix_wildcard(var1 = tour_new[ind], var2 = tour_new[ind +1], ind_wildcard = 1)
-                tour_new[ind] <- wildcard_old
-                
-                tour_new <- c(tour_new, pluck(cluster_begin_old,1,"cluster"))
-              }
-            }
-            if (str_detect(string = pluck(cluster_begin_new,1,"cluster_begin"), "X") == TRUE & dist_new2 < dist_old) {
-              ind <- which(dist_wildcard > dist_new) [1]
-              ind <- ind_wildcards_tour[ind]
-              
-              #Neue Wildcard ist schlechter als die bisherigen
-              if (is.na(ind) == TRUE) {
-                cluster <- pluck(cluster_begin_new,1,"cluster")
-                perm <- fix_wildcard(var1 = cluster[1], var2 = cluster[2], ind_wildcard = 1)
-                cluster[1] <- perm$perm 
-                tour_new <- c(tour_new, cluster)
-              }
-              
-              #neue Wildcard ist besser
-              if (is.na(ind) == FALSE)  {
-                
-                wildcard_old <-  fix_wildcard(var1 = tour_new[ind], var2 = tour_new[ind +1], ind_wildcard = 1)
-                tour_new[ind] <- wildcard_old
-                
-                tour_new <- c(tour_new, pluck(cluster_begin_new,1,"cluster"))
-              }
-            }
-      }
+      dist <- map_dbl(ind_wildcards, ~ combin_distance(var1 = tour_new[.x -1],var2 = tour_new[.x]) ) %>% order()
       
-      if (all(wildcards_solution_old %in% tour_new)) {
-        
-        dist_old <- sum(imap_dbl(wildcards_solution_old, ~combin_distance(var1 = .x, var2 = wildcards_solution_old[.y +1])))
-        dist_new <- sum(imap_dbl(tour_new, ~combin_distance(var1 = .x, var2 = tour_new[.y +1])))
-        
-        if (dist_new <= dist_old) {
-          wildcards_solution_old <- tour_new
-          ind_solution <- 1
-          break}
-        
-        if (dist_old < dist_new) {
-          ind_solution <- ind_solution +1
-          break}
-      }
+      wildcards_keep <- ind_wildcards[dist] [1:2]
+      wildcards_discard <- ind_wildcards[which(! ind_wildcards %in% wildcards_keep)]
+      
+      tour_new[wildcards_discard] <- map(wildcards_discard, ~ fix_wildcard(
+        var1 = tour_new[.x-1], var2 = tour_new[.x], ind_wildcard = 2)) %>% 
+        map_chr(., ~pluck(.x, "perm"))
+      
     }
-      
-      ###
-      #Check
-      
-      print(laufvar)
-      print(any(duplicated(tour_new)))
-      print(akt_tour_end)
-      
-      
-      laufvar <- laufvar + 1
-      anz_wildcards <- str_which(tour_new, "X")
-      if (length(anz_wildcards) != 0) {
-        
-        tour_x <- tour_new
-        tour_x[anz_wildcards] <- map_chr(anz_wildcards, ~{fix_wildcard(var1 = tour_new [.x] ,var2 = tour_new [.x +1],ind_wildcard = 1) %>% 
-            pluck(., "perm")})
-        
-      } else {tour_x <- tour_new}
-      
-      if (all(solution %in% tour_x)) {break}
-  }
+    
+    dist_old <- sum(imap_dbl(tour_old, ~combin_distance(var1 = .x, var2 = tour_old[.y +1])))
+    dist_new <- sum(imap_dbl(tour_new, ~combin_distance(var1 = .x, var2 = tour_new[.y +1])))
+    
+    
+    if (dist_new <= dist_old) {
+      tour_old <- tour_new
+      ind_solution <- 1}
+    
+    if (dist_old < dist_new) {
+      ind_solution <- ind_solution +1}
   
     if (ind_solution == times) {break}
   }
-  return(wildcards_solution_old)
+  return(tour_old)
 }
 
-#fix_wildcard(var1 = "X654327", var2 = "7543276", ind_wildcard = 1)
+solution_new <- furrr::future_map(solution$solution_permutationen, ~ wildcards_optim(solution = .x, times = 100))
+
+
+map(solution_new, ~ {
+  tour <- .x
+  sum(imap_dbl(tour, ~combin_distance(var1 = .x, var2 = tour[.y +1])))
+  })
+
+map(solution$solution_permutationen, ~ {
+  tour <- .x
+  sum(imap_dbl(tour, ~combin_distance(var1 = .x, var2 = tour[.y +1])))
+})
+
